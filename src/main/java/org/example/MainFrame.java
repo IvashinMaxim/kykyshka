@@ -10,6 +10,7 @@ import org.jfree.data.xy.XYSeriesCollection;
 import org.jfree.chart.ChartFactory;
 
 import javax.swing.*;
+import javax.swing.border.TitledBorder;
 import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.util.Arrays;
@@ -31,43 +32,109 @@ public class MainFrame extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1200, 800);
         initUI();
+        setLocationRelativeTo(null); // Центрирование окна
     }
 
     private void initUI() {
+        // Настройка цветов и шрифтов
+        Font mainFont = new Font("Segoe UI", Font.PLAIN, 14);
+        Color accentColor = new Color(0, 120, 215);
+
         controlPanel = new JPanel();
-        controlPanel.setLayout(new GridLayout(0, 2, 5, 5));
+        controlPanel.setLayout(new BorderLayout(10, 10));
+        controlPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-        controlPanel.add(new JLabel("Population Size:"));
-        populationField = new JTextField("20");
-        controlPanel.add(populationField);
+        // Панель параметров
+        JPanel paramsPanel = new JPanel(new GridLayout(0, 2, 10, 10));
+        paramsPanel.setBorder(BorderFactory.createTitledBorder(
+                BorderFactory.createLineBorder(Color.LIGHT_GRAY),
+                "Параметры оптимизации",
+                TitledBorder.LEFT,
+                TitledBorder.TOP,
+                mainFont.deriveFont(Font.BOLD),
+                accentColor));
 
-        controlPanel.add(new JLabel("Discovery Probability (pa):"));
-        paField = new JTextField("0.25");
-        controlPanel.add(paField);
+        addLabelAndField(paramsPanel, "Population Size:", "20", mainFont, populationField = new JTextField());
+        addLabelAndField(paramsPanel, "Discovery Probability (pa):", "0.25", mainFont, paField = new JTextField());
+        addLabelAndField(paramsPanel, "Step Size:", "0.01", mainFont, stepField = new JTextField());
+        addLabelAndField(paramsPanel, "Beta (1.0-2.0):", "1.5", mainFont, betaField = new JTextField());
+        addLabelAndField(paramsPanel, "Max Iterations:", "100", mainFont, iterationsField = new JTextField());
 
-        controlPanel.add(new JLabel("Step Size:"));
-        stepField = new JTextField("0.01");
-        controlPanel.add(stepField);
-
-        controlPanel.add(new JLabel("Beta (1.0-2.0):")); // Новое поле
-        betaField = new JTextField("1.5");
-        controlPanel.add(betaField);
-
-        controlPanel.add(new JLabel("Max Iterations:"));
-        iterationsField = new JTextField("100");
-        controlPanel.add(iterationsField);
-
-        controlPanel.add(new JLabel("Function:"));
+        // Выбор функции
+        JPanel functionPanel = new JPanel(new BorderLayout(5, 5));
+        functionPanel.add(new JLabel("Function:"), BorderLayout.WEST);
         functionCombo = new JComboBox<>(new String[]{"Sphere", "Rosenbrock"});
-        controlPanel.add(functionCombo);
+        functionCombo.setFont(mainFont);
+        functionPanel.add(functionCombo, BorderLayout.CENTER);
+        paramsPanel.add(functionPanel);
+        paramsPanel.add(new JLabel()); // Пустая ячейка для выравнивания
 
+        controlPanel.add(paramsPanel, BorderLayout.CENTER);
+
+        // Кнопка и прогресс-бар
+        JPanel bottomPanel = new JPanel(new BorderLayout(10, 10));
         JButton startButton = new JButton("Start Optimization");
+        styleButton(startButton, accentColor, mainFont);
         startButton.addActionListener(e -> startOptimization());
-        controlPanel.add(startButton);
 
+        progressBar = new JProgressBar();
+        progressBar.setForeground(accentColor);
+        progressBar.setBorder(BorderFactory.createEmptyBorder(5, 0, 0, 0));
+        progressBar.setStringPainted(true);
+
+        bottomPanel.add(startButton, BorderLayout.NORTH);
+        bottomPanel.add(progressBar, BorderLayout.SOUTH);
+        controlPanel.add(bottomPanel, BorderLayout.SOUTH);
+
+        // Лог и график
         logArea = new JTextArea();
-        logArea.setEditable(false);
+        logArea.setFont(new Font("Consolas", Font.PLAIN, 12));
+        logArea.setBackground(new Color(245, 245, 245));
+        logArea.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
+        JFreeChart chart = createStyledChart();
+        chartPanel = new ChartPanel(chart);
+        chartPanel.setBackground(Color.WHITE);
+
+        JSplitPane splitPane = new JSplitPane(
+                JSplitPane.HORIZONTAL_SPLIT,
+                new JScrollPane(logArea),
+                chartPanel
+        );
+        splitPane.setDividerLocation(350);
+        splitPane.setBorder(BorderFactory.createEmptyBorder());
+
+        add(controlPanel, BorderLayout.NORTH);
+        add(splitPane, BorderLayout.CENTER);
+    }
+
+    private void addLabelAndField(JPanel panel, String labelText, String fieldText, Font font, JTextField field) {
+        JLabel label = new JLabel(labelText);
+        label.setFont(font);
+        panel.add(label);
+
+        field.setText(fieldText);
+        field.setFont(font);
+        field.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(200, 200, 200)),
+                BorderFactory.createEmptyBorder(5, 8, 5, 8)
+        ));
+        panel.add(field);
+    }
+
+    private void styleButton(JButton button, Color color, Font font) {
+        button.setFont(font.deriveFont(Font.BOLD, 14f));
+        button.setBackground(color);
+        button.setForeground(Color.WHITE);
+        button.setFocusPainted(false);
+        button.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(color.darker()),
+                BorderFactory.createEmptyBorder(10, 25, 10, 25)
+        ));
+        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+    }
+
+    private JFreeChart createStyledChart() {
         JFreeChart chart = ChartFactory.createScatterPlot(
                 "Optimization Process",
                 "X", "Y",
@@ -75,26 +142,25 @@ public class MainFrame extends JFrame {
                 PlotOrientation.VERTICAL,
                 true, true, false
         );
-        chartPanel = new ChartPanel(chart);
 
-        JSplitPane splitPane = new JSplitPane(
-                JSplitPane.HORIZONTAL_SPLIT,
-                new JScrollPane(logArea),
-                chartPanel
-        );
-        splitPane.setDividerLocation(300);
+        XYPlot plot = chart.getXYPlot();
+        plot.setBackgroundPaint(new Color(245, 245, 245));
+        plot.setDomainGridlinePaint(new Color(220, 220, 220));
+        plot.setRangeGridlinePaint(new Color(220, 220, 220));
 
-        progressBar = new JProgressBar();
-        controlPanel.add(progressBar);
+        plot.getDomainAxis().setAxisLinePaint(Color.DARK_GRAY);
+        plot.getRangeAxis().setAxisLinePaint(Color.DARK_GRAY);
 
-        add(controlPanel, BorderLayout.NORTH);
-        add(splitPane, BorderLayout.CENTER);
+        chart.setAntiAlias(true);
+        chart.setTextAntiAlias(true);
+
+        return chart;
     }
 
     public void updateChart(Nest[] population, Nest bestNest) {
         XYSeriesCollection dataset = new XYSeriesCollection();
 
-        // Лучшее гнездо ДОЛЖНО добавляться первым
+        // Лучшее гнездо
         XYSeries bestSeries = new XYSeries("Best Nest");
         double[] bestPos = bestNest.getPosition();
         if (bestPos.length >= 2) bestSeries.add(bestPos[0], bestPos[1]);
@@ -111,10 +177,11 @@ public class MainFrame extends JFrame {
         XYPlot plot = chartPanel.getChart().getXYPlot();
         plot.setDataset(dataset);
 
-        // Настройка стилей
-        plot.getRenderer().setSeriesPaint(0, Color.RED);    // Первая серия - лучшая точка
-        plot.getRenderer().setSeriesPaint(1, Color.BLUE);   // Вторая серия - все точки
-        plot.getRenderer().setSeriesShape(0, new Ellipse2D.Double(-3, -3, 6, 6));
+        // Современные стили
+        plot.getRenderer().setSeriesPaint(0, new Color(255, 89, 94)); // Красный акцент
+        plot.getRenderer().setSeriesPaint(1, new Color(0, 120, 215)); // Синий
+        plot.getRenderer().setSeriesShape(0, new Ellipse2D.Double(-5, -5, 10, 10));
+        plot.getRenderer().setSeriesShape(1, new Ellipse2D.Double(-3, -3, 6, 6));
 
         chartPanel.repaint();
     }
