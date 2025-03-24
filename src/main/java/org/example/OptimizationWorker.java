@@ -1,12 +1,14 @@
+// OptimizationWorker.java (исправленный)
 package org.example;
 
 import javax.swing.*;
+import java.util.Arrays;
 import java.util.List;
 
 public class OptimizationWorker extends SwingWorker<Void, String> {
-    private MainFrame frame;
-    private CuckooSearch cs;
-    private int maxIterations;
+    private final MainFrame frame;
+    private final CuckooSearch cs;
+    private final int maxIterations;
 
     public OptimizationWorker(MainFrame frame, CuckooSearch cs, int maxIterations) {
         this.frame = frame;
@@ -19,17 +21,23 @@ public class OptimizationWorker extends SwingWorker<Void, String> {
         cs.initializePopulation();
         for (int iter = 0; iter < maxIterations; iter++) {
             cs.optimizeStep();
-            publish("Iteration: " + iter + ", Best Fitness: " + cs.getBestNest().getFitness());
+            publish(String.format("Итерация: %d | Лучшая fitness: %.5f",
+                    iter, cs.getBestNest().getFitness()));
             setProgress((100 * iter) / maxIterations);
         }
         return null;
     }
 
+
+
     @Override
     protected void process(List<String> chunks) {
-        for (String msg : chunks) {
+        chunks.forEach(msg -> {
             frame.appendLog(msg);
-            frame.updateChart(cs.getPopulation(), cs.getBestNest());
-        }
+            Nest bestNest = cs.getBestNest();
+            frame.updateChart(cs.getPopulation(), bestNest);
+
+            System.out.println("Лучшая позиция: " + Arrays.toString(bestNest.getPosition()));
+        });
     }
 }
